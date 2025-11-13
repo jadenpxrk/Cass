@@ -10,7 +10,7 @@ const execFileAsync = promisify(execFile);
 export class ScreenshotHelper {
   private screenshotQueue: string[] = [];
   private extraScreenshotQueue: string[] = [];
-  private readonly MAX_SCREENSHOTS = 1;
+  private readonly MAX_SCREENSHOTS = 3;
 
   private readonly screenshotDir: string;
   private readonly extraScreenshotDir: string;
@@ -21,18 +21,16 @@ export class ScreenshotHelper {
     this.view = view;
 
     // Initialize directories
-    this.screenshotDir = path.join(app.getPath("userData"), "screenshots");
-    this.extraScreenshotDir = path.join(
-      app.getPath("userData"),
-      "extra_screenshots"
-    );
+    const picturesRoot = path.join(app.getPath("pictures"), "Cass");
+    this.screenshotDir = path.join(picturesRoot, "screenshots");
+    this.extraScreenshotDir = path.join(picturesRoot, "extra_screenshots");
 
-    // Create directories if they don't exist
+    // Create directories if they don't exist (ensure parents exist)
     if (!fs.existsSync(this.screenshotDir)) {
-      fs.mkdirSync(this.screenshotDir);
+      fs.mkdirSync(this.screenshotDir, { recursive: true });
     }
     if (!fs.existsSync(this.extraScreenshotDir)) {
-      fs.mkdirSync(this.extraScreenshotDir);
+      fs.mkdirSync(this.extraScreenshotDir, { recursive: true });
     }
   }
 

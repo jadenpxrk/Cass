@@ -20,7 +20,8 @@
     "noFallthroughCasesInSwitch": true,
     "allowJs": true,
     "esModuleInterop": true,
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "types": ["node"]
   },
   "include": ["electron/**/*", "src/**/*", "env.d.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]

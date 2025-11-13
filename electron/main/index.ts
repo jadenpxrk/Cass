@@ -1,121 +1,16 @@
 import { BrowserWindow, app, screen } from "electron";
-
-import { AudioHelper } from "./AudioHelper";
-import { ProcessingHelper } from "./ProcessingHelper";
-// import { ScreenCaptureHelper } from "./ScreenCaptureHelper";
-import { ScreenshotHelper } from "./ScreenshotHelper";
-import { ShortcutsHelper } from "./shortcuts";
-import { initializeIpcHandlers } from "./ipcHandlers";
+// Initialize local loopback (system audio via getDisplayMedia)
+import { initMain as initLoopbackMain } from "../loopback/main";
+initLoopbackMain();
 import path from "path";
 
-let store: any = null;
-
-async function initializeStore() {
-  try {
-    const fs = await import("fs/promises");
-    const userDataPath =
-      process.env.APPDATA ||
-      (process.platform === "darwin"
-        ? path.join(process.env.HOME || "", "Library", "Application Support")
-        : path.join(process.env.HOME || "", ".config"));
-
-    const configPath = path.join(userDataPath, "cass", "config.json");
-
-    store = {
-      _configPath: configPath,
-      get: async (key: string) => {
-        try {
-          await fs.access(configPath);
-        } catch (error) {
-          await fs.mkdir(path.dirname(configPath), { recursive: true });
-          await fs.writeFile(configPath, JSON.stringify({}), "utf8");
-          return undefined;
-        }
-        try {
-          const data = await fs.readFile(configPath, "utf8");
-          const config = JSON.parse(data || "{}");
-          return config[key];
-        } catch (readError) {
-          console.error(
-            `Error reading config file at ${configPath}:`,
-            readError
-          );
-          try {
-            await fs.writeFile(configPath, JSON.stringify({}), "utf8");
-          } catch (writeError) {
-            console.error(
-              `Failed to reset corrupted config file at ${configPath}:`,
-              writeError
-            );
-          }
-          return undefined;
-        }
-      },
-      set: async (key: string, value: any) => {
-        try {
-          await fs.mkdir(path.dirname(configPath), { recursive: true });
-          let config = {};
-          try {
-            const data = await fs.readFile(configPath, "utf8");
-            config = JSON.parse(data || "{}");
-          } catch (error) {
-            // Ignore if file doesn't exist
-          }
-          config = { ...config, [key]: value };
-          await fs.writeFile(
-            configPath,
-            JSON.stringify(config, null, 2),
-            "utf8"
-          );
-          return true;
-        } catch (error) {
-          console.error(`Error setting ${key} in config:`, error);
-          return false;
-        }
-      },
-    };
-    return true;
-  } catch (error) {
-    console.error("Error initializing config store:", error);
-    store = null;
-    return false;
-  }
-}
-
-export async function getStoreValue(key: string): Promise<any> {
-  if (!store) {
-    const initialized = await initializeStore();
-    if (!initialized || !store) {
-      console.error("Store access failed: Could not initialize store.");
-      return undefined;
-    }
-  }
-  return store.get(key);
-}
-
-export async function setStoreValue(key: string, value: any): Promise<boolean> {
-  if (!store) {
-    const initialized = await initializeStore();
-    if (!initialized || !store) {
-      console.error("Store access failed: Could not initialize store.");
-      return false;
-    }
-  }
-  return store.set(key, value);
-}
-
-interface ProcessingEvents {
-  FOLLOW_UP_SUCCESS: string;
-  FOLLOW_UP_ERROR: string;
-  FOLLOW_UP_CHUNK: string;
-  API_KEY_INVALID: string;
-  INITIAL_START: string;
-  RESPONSE_SUCCESS: string;
-  INITIAL_RESPONSE_ERROR: string;
-  FOLLOW_UP_START: string;
-  RESPONSE_CHUNK: string;
-  RESET: string;
-}
+import { ProcessingHelper } from "../services/ProcessingHelper";
+// import { ScreenCaptureHelper } from "../helpers/ScreenCaptureHelper";
+import { ScreenshotHelper } from "../helpers/ScreenshotHelper";
+import { ShortcutsHelper } from "../helpers/shortcuts";
+import { initializeIpcHandlers } from "../ipc";
+import { getStoreValue } from "../store/config";
+import type { IProcessingHelperDeps, IShortcutsHelperDeps, ProcessingEventMap } from "../types/ipc";
 
 interface State {
   mainWindow: BrowserWindow | null;
@@ -128,11 +23,11 @@ interface State {
   currentY: number;
   shortcutsHelper: any;
   hasFollowedUp: boolean;
-  PROCESSING_EVENTS: ProcessingEvents;
+  PROCESSING_EVENTS: ProcessingEventMap;
   screenshotHelper: any;
   processingHelper: any;
+  audioHelper: null;
   screenCaptureHelper: any | null;
-  audioHelper: AudioHelper | null;
   view: "initial" | "response" | "followup";
   step: number;
 }
@@ -150,8 +45,8 @@ const state: State = {
   hasFollowedUp: false,
   screenshotHelper: null,
   processingHelper: null,
-  screenCaptureHelper: null,
   audioHelper: null,
+  screenCaptureHelper: null,
   view: "initial",
   step: 0,
   PROCESSING_EVENTS: {
@@ -168,73 +63,11 @@ const state: State = {
   },
 };
 
-export interface IProcessingHelperDeps {
-  getScreenshotHelper: () => ScreenshotHelper;
-  getMainWindow: () => BrowserWindow | null;
-  getView: () => "initial" | "response" | "followup";
-  setView: (view: "initial" | "response" | "followup") => void;
-  getConfiguredModel: () => Promise<string>;
-  setHasFollowedUp: (hasFollowedUp: boolean) => void;
-  clearQueues: () => void;
-  PROCESSING_EVENTS: typeof state.PROCESSING_EVENTS;
-  getAudioHelper: () => AudioHelper | null;
-  getRecordingStatus: () => { isRecording: boolean; recording?: any };
-}
 
-export interface IShortcutsHelperDeps {
-  getMainWindow: () => BrowserWindow | null;
-  takeScreenshot: () => Promise<string>;
-  getImagePreview: (filepath: string) => Promise<string>;
-  processingHelper: ProcessingHelper | null;
-  clearQueues: () => void;
-  setView: (view: "initial" | "response" | "followup") => void;
-  isWindowUsable: () => boolean;
-  toggleMainWindow: () => void;
-  moveWindowLeft: () => void;
-  moveWindowRight: () => void;
-  moveWindowUp: () => void;
-  moveWindowDown: () => void;
-  quitApplication: () => void;
-  PROCESSING_EVENTS: typeof state.PROCESSING_EVENTS;
-  setHasFollowedUp: (value: boolean) => void;
-  getHasFollowedUp: () => boolean;
-  getConfiguredModel: () => Promise<string>;
-}
-
-export interface initializeIpcHandlerDeps {
-  getMainWindow: () => BrowserWindow | null;
-  getScreenshotQueue: () => string[];
-  getExtraScreenshotQueue: () => string[];
-  processingHelper?: ProcessingHelper;
-  setWindowDimensions: (width: number, height: number) => void;
-  takeScreenshot: () => Promise<string>;
-  toggleMainWindow: () => void;
-  clearQueues: () => void;
-  setView: (view: "initial" | "response" | "followup") => void;
-  moveWindowLeft: () => void;
-  moveWindowRight: () => void;
-  moveWindowUp: () => void;
-  moveWindowDown: () => void;
-  quitApplication: () => void;
-  getView: () => "initial" | "response" | "followup";
-  createWindow: () => Promise<BrowserWindow>;
-  PROCESSING_EVENTS: typeof state.PROCESSING_EVENTS;
-  setHasFollowedUp: (value: boolean) => void;
-  getAudioHelper: () => AudioHelper | null;
-  getRecordingStatus: () => { isRecording: boolean; recording?: any };
-  startRecording: () => Promise<{ success: boolean; error?: string }>;
-  stopRecording: () => Promise<{
-    success: boolean;
-    recording?: any;
-    error?: string;
-  }>;
-  getAudioBase64: (filePath: string) => Promise<string>;
-}
 
 function initializeHelpers() {
   state.screenshotHelper = new ScreenshotHelper(state.view);
   // state.screenCaptureHelper = new ScreenCaptureHelper();
-  state.audioHelper = new AudioHelper(state.mainWindow);
   state.processingHelper = new ProcessingHelper({
     getScreenshotHelper,
     getMainWindow,
@@ -248,9 +81,18 @@ function initializeHelpers() {
     getHasFollowedUp,
     PROCESSING_EVENTS: state.PROCESSING_EVENTS,
     getConfiguredModel,
-    getAudioHelper,
-    getRecordingStatus,
+    getUserProfile: async () => {
+      try {
+        const value = await getStoreValue("user-profile");
+        if (typeof value === "string") return value;
+        if (value && typeof value === "object") return JSON.stringify(value);
+        return undefined;
+      } catch {
+        return undefined;
+      }
+    },
   } as IProcessingHelperDeps);
+
   state.shortcutsHelper = new ShortcutsHelper({
     getMainWindow,
     takeScreenshot,
@@ -299,7 +141,7 @@ async function createWindow(): Promise<BrowserWindow> {
     y: 50,
     alwaysOnTop: true,
     webPreferences: {
-      nodeIntegration: true,
+      nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, "preload.js"),
       scrollBounce: true,
@@ -321,10 +163,7 @@ async function createWindow(): Promise<BrowserWindow> {
 
   state.mainWindow = new BrowserWindow(windowSettings);
 
-  // Update audio helper with the new main window reference
-  if (state.audioHelper) {
-    state.audioHelper.setMainWindow(state.mainWindow);
-  }
+  // No main-side audio helper; renderer handles audio capture
 
   // Ensure window starts non-interactive (click-through) immediately
   state.mainWindow.setIgnoreMouseEvents(true, { forward: true });
@@ -382,8 +221,7 @@ async function createWindow(): Promise<BrowserWindow> {
   //   state.mainWindow.webContents.openDevTools();
   // }
 
-  // Enhanced screen capture resistance
-  state.mainWindow.setContentProtection(true);
+  // Screen capture protection disabled (no ScreenFilter)
 
   state.mainWindow.setVisibleOnAllWorkspaces(true, {
     visibleOnFullScreen: true,
@@ -693,11 +531,18 @@ async function initializeApp() {
       setHasFollowedUp: (value) => {
         state.hasFollowedUp = value;
       },
-      getAudioHelper,
-      getRecordingStatus,
-      startRecording,
-      stopRecording,
-      getAudioBase64,
+      // Audio deps
+      startAudioRecording: async () => {
+        const res = await state.audioHelper?.startRecording('mixed');
+        return res || { success: false, error: 'Audio helper unavailable' };
+      },
+      stopAudioRecording: async () => {
+        const res = await state.audioHelper?.stopRecording();
+        return res || { success: false, error: 'Audio helper unavailable' };
+      },
+      getAudioBase64: async (filePath?: string) => {
+        return (await state.audioHelper?.getAudioBase64(filePath)) || { base64: '', mimeType: 'audio/wav' };
+      },
     });
     await createWindow();
     state.shortcutsHelper?.registerGlobalShortcuts();
@@ -775,39 +620,6 @@ async function getConfiguredModel(): Promise<string> {
   }
 }
 
-// Audio helper accessor functions
-function getAudioHelper(): AudioHelper | null {
-  return state.audioHelper;
-}
-
-function getRecordingStatus(): { isRecording: boolean; recording?: any } {
-  return state.audioHelper?.getRecordingStatus() || { isRecording: false };
-}
-
-async function startRecording(): Promise<{ success: boolean; error?: string }> {
-  if (!state.audioHelper) {
-    return { success: false, error: "Audio helper not initialized" };
-  }
-  return state.audioHelper.startRecording();
-}
-
-async function stopRecording(): Promise<{
-  success: boolean;
-  recording?: any;
-  error?: string;
-}> {
-  if (!state.audioHelper) {
-    return { success: false, error: "Audio helper not initialized" };
-  }
-  return state.audioHelper.stopRecording();
-}
-
-async function getAudioBase64(filePath: string): Promise<string> {
-  if (!state.audioHelper) {
-    throw new Error("Audio helper not initialized");
-  }
-  return state.audioHelper.getAudioBase64(filePath);
-}
 
 // Export state and functions for other modules
 export {
@@ -832,11 +644,6 @@ export {
   getHasFollowedUp,
   getConfiguredModel,
   isWindowUsable,
-  getAudioHelper,
-  getRecordingStatus,
-  startRecording,
-  stopRecording,
-  getAudioBase64,
 };
 
 app.whenReady().then(initializeApp);
@@ -855,11 +662,7 @@ app.on("before-quit", async () => {
     console.log("All screenshots cleaned up");
   }
 
-  // Clean up audio recordings
-  if (state.audioHelper) {
-    state.audioHelper.cleanupAllRecordings();
-    console.log("Audio recordings cleaned up");
-  }
+  // Renderer handles audio; no main-side cleanup required
 });
 
 app.on("window-all-closed", async () => {
@@ -873,11 +676,7 @@ app.on("window-all-closed", async () => {
     console.log("All screenshots cleaned up on window close");
   }
 
-  // Clean up audio recordings
-  if (state.audioHelper) {
-    state.audioHelper.cleanupAllRecordings();
-    console.log("Audio recordings cleaned up on window close");
-  }
+  // Renderer handles audio; no main-side cleanup required
 
   if (process.platform !== "darwin") {
     app.quit();

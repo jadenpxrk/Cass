@@ -4,14 +4,12 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "clean": "rimraf dist dist-electron",
-    "build:swift": "cd swift-helpers && swift build -c release",
-    "build:swift:universal": "cd swift-helpers && arch -arm64 swift build -c release && cp .build/release/swift-helpers .build/release/swift-helper-universal",
     "build:native": "cd native && node-gyp rebuild",
     "build:native:clean": "cd native && node-gyp clean && node-gyp rebuild",
     "dev": "cross-env NODE_ENV=development vite",
     "dev:prod": "cross-env NODE_ENV=production npm run clean && vite build && tsc -p tsconfig.electron.json && electron .",
-    "build:mac": "cross-env NODE_ENV=production rimraf dist dist-electron && npm run build:swift:universal && vite build && tsc -p tsconfig.electron.json && electron-builder --mac",
-    "build": "cross-env NODE_ENV=production rimraf dist dist-electron && npm run build:swift:universal && vite build && tsc -p tsconfig.electron.json && electron-builder --mac --win --x64"
+    "build:mac": "cross-env NODE_ENV=production rimraf dist dist-electron && vite build && tsc -p tsconfig.electron.json && electron-builder --mac",
+    "build": "cross-env NODE_ENV=production rimraf dist dist-electron && vite build && tsc -p tsconfig.electron.json && electron-builder --mac --win --x64"
   },
   "build": {
     "appId": "com.jaehyeongpark.cass",
@@ -29,12 +27,7 @@
     "asar": true,
     "compression": "maximum",
     "generateUpdatesFilesForAllChannels": true,
-    "extraResources": [
-      {
-        "from": "swift-helpers/.build/release/AudioMixer",
-        "to": "swift-helpers/AudioMixer"
-      }
-    ],
+    "extraResources": [],
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": [
@@ -60,6 +53,11 @@
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
       "notarize": false,
+      "extendInfo": {
+        "NSScreenCaptureUsageDescription": "Cass needs screen recording permission to capture system audio and screenshots.",
+        "NSMicrophoneUsageDescription": "Cass uses the microphone for audio notes and mixed audio capture.",
+        "NSAudioCaptureUsageDescription": "Cass may capture app audio to assist with transcription and context."
+      },
       "protocols": {
         "name": "cass-protocol",
         "schemes": [
@@ -164,6 +162,7 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.4.2",
     "vite": "^6.3.3",
+    
     "vite-plugin-electron": "^0.28.4",
     "vite-plugin-electron-renderer": "^0.14.6"
   },

@@ -67,10 +67,11 @@ export default function Initial({ setView }: InitialProps) {
   return (
     <div ref={contentRef} className="w-0">
       <div className="px-4 py-3">
-        <div className="space-y-3 w-fit">
+        <div className="space-y-2 w-fit">
           <Commands
             onTooltipVisibilityChange={handleTooltipVisibilityChange}
             view="initial"
+            screenshots={screenshots}
           />
         </div>
       </div>

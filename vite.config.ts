@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     electron([
       {
-        entry: "electron/main.ts",
+        entry: "electron/main/index.ts",
         vite: {
           build: {
             outDir: "dist-electron",
@@ -16,18 +16,24 @@ export default defineConfig({
             minify: false,
             rollupOptions: {
               external: ["electron"],
+              output: {
+                entryFileNames: "main.js",
+              },
             },
           },
         },
       },
       {
-        entry: "electron/preload.ts",
+        entry: "electron/bridge/preload.ts",
         vite: {
           build: {
             outDir: "dist-electron",
             sourcemap: true,
             rollupOptions: {
               external: ["electron"],
+              output: {
+                entryFileNames: "preload.js",
+              },
             },
           },
         },

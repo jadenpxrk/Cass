@@ -1,5 +1,5 @@
 import React from "react";
-import { motion } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 
 interface LoadingDotsProps {
   color?: string;
@@ -8,14 +8,15 @@ interface LoadingDotsProps {
 }
 
 export default function LoadingDots({ color, size, gap }: LoadingDotsProps) {
-  const dotVariants = {
+  const dotVariants: Variants = {
     pulse: {
       scale: [1, 1.3, 1],
       opacity: [0.5, 1, 0.5],
       transition: {
         duration: 1,
         repeat: Infinity,
-        ease: "easeInOut",
+        // Use cubic-bezier to satisfy type for Easing
+        ease: [0.42, 0, 0.58, 1],
       },
     },
   };

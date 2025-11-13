@@ -2,7 +2,6 @@ import LoadingDots from "./LoadingDots";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/cjs/styles/prism";
-import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 
 const transparentOneDark: Record<string, any> = Object.entries(oneDark).reduce(
@@ -30,8 +29,15 @@ export const MarkdownSection = ({
         <div className="w-full text-xs">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeRaw]}
             components={{
+              a: ({ node, ...props }) => (
+                <a
+                  className="underline hover:opacity-90"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  {...props}
+                />
+              ),
               h1: ({ node, ...props }) => (
                 <h1 className="text-xs font-bold mb-2" {...props} />
               ),
@@ -44,6 +50,15 @@ export const MarkdownSection = ({
               p: ({ node, ...props }) => (
                 <p className="mb-2 text-xs" {...props} />
               ),
+              blockquote: ({ node, ...props }) => (
+                <blockquote
+                  className="border-l-2 border-border pl-3 my-2 text-muted-foreground"
+                  {...props}
+                />
+              ),
+              hr: ({ node, ...props }) => (
+                <hr className="my-3 border-border/60" {...props} />
+              ),
               ul: ({ node, ...props }) => (
                 <ul className="list-disc ml-4 mb-2 text-xs" {...props} />
               ),
@@ -52,6 +67,17 @@ export const MarkdownSection = ({
               ),
               li: ({ node, ...props }) => (
                 <li className="mb-1 text-xs" {...props} />
+              ),
+              img: ({ node, ...props }) => (
+                // Ensure images don’t overflow the panel
+                <img className="max-w-full rounded" {...props} />
+              ),
+              strong: ({ node, ...props }) => (
+                <strong className="font-semibold" {...props} />
+              ),
+              em: ({ node, ...props }) => <em className="italic" {...props} />,
+              del: ({ node, ...props }) => (
+                <del className="line-through" {...props} />
               ),
               table: ({ node, ...props }) => (
                 <div className="overflow-x-auto my-2">
@@ -102,6 +128,13 @@ export const MarkdownSection = ({
                     {children}
                   </code>
                 );
+              },
+              input: ({ node, ...props }: any) => {
+                // Style GFM task list checkboxes
+                if (props.type === "checkbox") {
+                  return <input className="mr-2 align-middle accent-primary" {...props} />;
+                }
+                return <input {...props} />;
               },
             }}
           >

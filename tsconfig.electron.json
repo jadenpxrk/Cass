@@ -11,10 +11,7 @@
     "esModuleInterop": true,
     "noImplicitAny": false,
     "strictNullChecks": false,
-    "baseUrl": ".",
-    "paths": {
-      "main": ["electron/main.ts"]
-    }
+    "baseUrl": "."
   },
   "include": ["electron/**/*"]
 }

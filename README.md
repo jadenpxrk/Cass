@@ -1,33 +1,41 @@
-# Cass - Invisible AI Assistant
+# Cass - Invisible Desktop Assistant
 
-**Cass** is your invisible AI companion for screen-sharing sessions. It stays completely hidden from Zoom, Google Meet, and other screen capture software while providing intelligent, contextual responses during calls, interviews, and presentations.
+**Cass** is your invisible, on-screen AI companion. It runs as a floating Electron app that stays hidden from Zoom, Google Meet, and other capture tools while answering whatever you throw at it—coding drills, multiple-choice questions, planning prompts, or quick definitions mid-call.
 
-**Note: Cass is no longer invisible to Zoom out of the box due to changes in their screen recording mechanism. In order for it to be invisible, you will need to manually change the zoom screen recording permissions to advanced screen filtering.**
+Note: Cass no longer attempts to enforce invisibility via OS-level screen filtering. Some meeting tools may capture the window as a normal overlay. If your tool offers advanced screen filtering, you can enable it manually.
 
 ## How It Works
 
-1. **Press `Cmd/Ctrl + Enter`** - Starts recording audio and takes a screenshot
-2. **AI Analysis** - Combines audio context and visual information using Google Gemini AI
-3. **Get Smart Responses** - Receive contextual answers to questions, discussions, and content
-4. **Continue Conversations** - Follow up with additional context or reset with `Cmd/Ctrl + R`
+1. **Press `Cmd/Ctrl + Enter`** – Capture screenshots and (optionally) audio notes.
+2. **AI Analysis** – Screenshots, audio context, and stored session history are streamed to Google Gemini.
+3. **Get Smart Responses** – Cass formats output for the task at hand (code fences for LeetCode, clear picks for MCQ, numbered steps for math, structured plans, etc.).
+4. **Continue Conversations** – Add context with another `Cmd/Ctrl + Enter` or reset with `Cmd/Ctrl + R`.
 
 Perfect for:
 
-- Job interviews and technical assessments
+- Technical assessments, LeetCode drills, and code walkthroughs
 - Client presentations and sales calls
-- Educational lectures and training sessions
-- Any situation where you need AI assistance without detection
+- Educational lectures, training sessions, and study groups
+- Everyday productivity moments where you need a private copilot
 
 ## Key Features
 
-- **Invisible to Screen Share**: Uses advanced screen filtering to remain hidden from Zoom, Google Meet, and other screen capture software
-- **Mandatory Protection on macOS**: Application requires screen capture protection to run - ensures reliable undetectable operation
+- **Lightweight Overlay**: Floating Electron window you can toggle and reposition
 - **Audio + Visual Processing**: Combines system audio, microphone input, and screenshot analysis
-- **Contextual AI Responses**: Powered by Google Gemini for intelligent, contextual replies
-- **Follow-up Conversations**: Press `Cmd/Ctrl + Enter` again to continue the conversation with new context
+  - macOS: System audio is captured via Electron loopback (no separate binary). Microphone is mixed in the renderer using Web Audio.
+- **Contextual AI Responses**: Powered by Google Gemini with task-aware formatting (code fences for programming, numbered steps for math, MCQ rationales, polished writing assistance, etc.)
+- **Follow-up Conversations**: Press `Cmd/Ctrl + Enter` again to continue the conversation with new context; responses stream live so you can read as they generate
 - **Reset Functionality**: Press `Cmd/Ctrl + R` to start a fresh session
 - **Cross-platform**: Works on macOS and Windows
 - **Persistent Configuration**: Remembers API keys and model preferences
+
+### Assistant behavior
+
+- Cass detects common task types and shapes the answer accordingly.
+- Coding solutions include fenced code blocks with language hints plus complexity and example walkthroughs.
+- Math responses show step-by-step work, labeled formulas, and a clearly called out final answer.
+- Multiple-choice answers lead with the correct option, followed by concise reasoning for every choice.
+- General planning and writing prompts are formatted with headings or bullet lists to stay scannable.
 
 ## Keyboard Shortcuts
 
@@ -48,43 +56,28 @@ Perfect for:
 
 ### App Won't Start on macOS
 
-**Most common issue**: Screen Recording permission not granted
+If screenshots fail or audio is unavailable, ensure Cass has the relevant permissions in System Settings > Privacy & Security (Screen Recording, Microphone). Then restart Cass.
 
-**Solution**:
+### About Screen Protection
 
-1. Open **System Preferences** > **Security & Privacy** > **Privacy**
-2. Click **"Screen Recording"** in the left sidebar
-3. Ensure **Cass is checked** in the list
-4. If not listed, click **"+"** and add Cass
-5. **Restart Cass** after granting permission
-
-**System Requirements**: macOS 12.3+ required for screen protection features
-
-### Why is Screen Protection Mandatory?
-
-Cass prioritizes **reliable invisibility** over convenience. This ensures:
-
-- **Consistent invisibility** during screen sharing sessions
-- **No accidental exposure** that could compromise your privacy
-- **Professional reliability** for high-stakes situations
+Cass no longer ships a native screen-protection helper. Behavior during screen sharing depends on the conference tool. Some tools offer options to hide overlays; enable them if needed.
 
 ## System Requirements
 
 ### macOS
 
-- **macOS 12.3+** required for ScreenCaptureKit support
-- **Screen Recording permission** required (System Preferences > Security & Privacy > Privacy > Screen Recording)
-- Application will not start without proper screen capture protection
+- macOS 12+ recommended
+- Screen Recording and Microphone permissions may be required for screenshots and audio capture
+ - For system audio loopback, grant Screen Recording. On macOS 14.4+, Apple added `NSAudioCaptureUsageDescription` for app‑audio capture.
 
 ### Windows
 
-- **Windows 10+** recommended
-- Core functionality available (screen protection features limited)
+- Windows 10+ recommended
 
 ## Project Structure
 
 - `/electron` - Electron main process files (audio recording, screenshot capture, AI processing)
 - `/src` - React frontend components (renderer process UI)
-- `/swift-helpers` - **CRITICAL** Native Swift helpers for mandatory screen protection on macOS
+- (no native helpers required)
 - `/assets` - Application icons and resources
 - `/build` - Build configuration and entitlements

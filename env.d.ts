@@ -8,7 +8,6 @@ interface Window {
       width: number;
       height: number;
     }) => Promise<void>;
-    clearStore: () => Promise<{ success: boolean; error?: string }>;
     // process
     getScreenshots: () => Promise<{
       success: boolean;
@@ -43,8 +42,6 @@ interface Window {
     triggerMoveDown: () => Promise<{ success: boolean; error?: string }>;
     // helper
     getPlatform: () => string;
-    getStoreValue: (key: string) => Promise<any>;
-    setStoreValue: (key: string, value: any) => Promise<void>;
     setApiConfig: (config: {
       apiKey: string;
       model: string;
@@ -85,6 +82,9 @@ interface Window {
     onAudioRecordingStatusChanged: (
       callback: (data: { isRecording: boolean; recording?: any }) => void
     ) => () => void;
+    // System audio loopback (electron-audio-loopback)
+    enableLoopbackAudio: () => Promise<any>;
+    disableLoopbackAudio: () => Promise<any>;
   };
 
   electron?: {

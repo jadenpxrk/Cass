@@ -9,12 +9,14 @@ interface CommandsProps {
   onTooltipVisibilityChange: (visible: boolean, height: number) => void;
   view: "initial" | "response" | "followup";
   isLoading?: boolean;
+  screenshots?: { id: string; path: string; preview?: string; timestamp: number }[];
 }
 
 export default function Commands({
   onTooltipVisibilityChange,
   view,
   isLoading = false,
+  screenshots = [],
 }: CommandsProps) {
   const isInitialView = view === "initial";
   const showAskFollowUp = !isInitialView && !isLoading;
@@ -175,7 +177,7 @@ export default function Commands({
   return (
     <div className="select-none">
       <div className="pt-2 w-fit">
-        <div className="text-xs text-foreground backdrop-blur-md bg-background/80 rounded-lg py-2 px-4 flex items-center justify-start gap-3">
+        <div className="text-xs text-foreground backdrop-blur-md bg-background/50 rounded-lg py-2 px-4 flex items-center justify-start gap-3">
           <div className="flex items-center gap-2 rounded px-2 py-1.5 pointer-events-none select-none">
             <span className="text-xs leading-none truncate">Show/Hide</span>
             <div className="flex gap-1">
@@ -184,6 +186,19 @@ export default function Commands({
               </button>
               <button className="bg-muted rounded-md px-1.5 py-1 text-xs leading-none">
                 {BackslashIcon}
+              </button>
+            </div>
+          </div>
+
+          {/* Screenshot shortcut indicator (right of Show/Hide) */}
+          <div className="flex items-center gap-2 rounded px-2 py-1.5 pointer-events-none select-none">
+            <span className="text-xs leading-none truncate">Screenshot</span>
+            <div className="flex gap-1">
+              <button className="bg-muted rounded-md px-1.5 py-1 text-xs leading-none">
+                {COMMAND_KEY}
+              </button>
+              <button className="bg-muted rounded-md px-1.5 py-1 text-xs leading-none">
+                B
               </button>
             </div>
           </div>
@@ -247,6 +262,29 @@ export default function Commands({
             onVisibilityChange={onTooltipVisibilityChange}
             trigger={<Settings className="h-4 w-4" />}
           />
+
+          {/* Thumbnails on the right end of the overlay menu bar */}
+          {screenshots?.length ? (
+            <div className="ml-2 flex items-center gap-2 pointer-events-none select-none">
+              {screenshots.slice(-3).map((shot) => (
+                <div
+                  key={shot.id}
+                  className="w-[96px] h-[60px] overflow-hidden rounded border border-border"
+                >
+                  {shot.preview ? (
+                    <img
+                      src={`data:image/png;base64,${shot.preview}`}
+                      alt="screenshot"
+                      className="w-full h-full object-cover"
+                      draggable={false}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-muted" />)
+                  }
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

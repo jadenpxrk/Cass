@@ -1,186 +1,162 @@
 # Cass Architecture Reference
 
-**Cass** is an invisible AI assistant with a multi-process architecture designed for reliability and security. This document outlines the key architectural decisions and component responsibilities.
+Cass is a lightweight desktop AI assistant built with Electron + React. This document maps the current codebase and highlights the major components and responsibilities so you can navigate and reason about the project quickly.
 
 ## Core Design Principles
 
-- **Fail-fast approach**: Critical components must work or app exits with clear error messages
-- **Security-first**: Screen invisibility is mandatory, not optional
-- **Process isolation**: Main process handles system operations, renderer handles UI
-- **Platform-specific optimization**: Native Swift helpers for macOS-specific features
+- Fail-fast for critical paths: surface clear errors for capture or API failures
+- Process isolation: Electron main handles system ops; React renderer handles UI
+- Platform-specific optimization: Chromium/Electron loopback is used for system audio on macOS
+- Best‑effort invisibility: native screen-protection is no longer enforced; behavior depends on the sharing tool (see README)
 
 ## Process Architecture
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│ React Frontend  │◄──►│ Electron Main   │◄──►│ Swift Helpers   │
-│ (src/)          │    │ (electron/)     │    │ (swift-helpers/)│
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+┌─────────────────┐    ┌─────────────────┐
+│ React Frontend  │◄──►│ Electron Main   │
+│ (src/)          │    │ (electron/)     │
+└─────────────────┘    └─────────────────┘
 ```
 
 ## Directory Structure
 
-### `/electron` - Electron Main Process
+### `/electron` – Electron Main Process
 
-**Main Process** - System-level operations and coordination
+System-level operations and coordination.
 
-**Critical Components:**
-- `main.ts` - App lifecycle, **MANDATORY** Swift helper initialization
-- `ScreenCaptureHelper.ts` - **REQUIRED** screen invisibility (app exits if fails)
-- `AudioHelper.ts` - Multi-source recording with intelligent fallbacks
-- `ProcessingHelper.ts` - Google Gemini AI integration
-- `ScreenshotHelper.ts` - Cross-platform screenshot capture
-- `shortcuts.ts` - Global keyboard shortcuts
-- `ipcHandlers.ts` - Secure main-renderer communication
-- `preload.ts` - Security bridge for IPC
+• Main process
+- `main/index.ts` – App lifecycle, window management, dependency wiring
+- `ipc/index.ts` – IPC handlers for screenshots, processing, window actions, config
+- `bridge/preload.ts` – Preload bridge for secure renderer IPC; renderer-side audio capture/mixing
 
-**Error Handling Philosophy:**
-- **Fail fast**: Critical failures result in immediate app exit with error dialog
-- **No fallbacks**: Screen protection must work or app won't start
-- **User-friendly**: Clear error messages with actionable solutions
+• Services and helpers
+- `services/ProcessingHelper.ts` – Gemini API integration and response streaming
+- `helpers/ScreenshotHelper.ts` – Cross‑platform screenshot capture and queue management
+- `helpers/shortcuts.ts` – Global shortcuts (toggle window, capture, reset, move)
 
-### `/src` - React Frontend (Renderer Process)
+• Loopback audio (macOS)
+- `loopback/main.ts` – getDisplayMedia request handler for system audio loopback
 
-The user interface built with React, TypeScript, and Tailwind CSS. Provides an intuitive interface for interacting with the AI assistant.
+• Persistence and types
+- `store/config.ts` – Minimal JSON‑backed key–value store (API key, model, profile)
+- `types/ipc.ts` – Shared type definitions for main process dependencies
 
-**Key Areas:**
+Error handling philosophy
+- Fail fast for unrecoverable errors (e.g., screenshot failure)
+- User‑friendly errors with actionable messages
+- Screen‑capture protection is disabled; invisibility is best‑effort (see README)
 
-- `App.tsx` - Main application component with routing and providers
-- `components/` - React components organized by functionality
-- `types/` - TypeScript type definitions for type safety
-- `utils/` - Frontend utility functions and helpers
-- `lib/` - Third-party library configurations
+### `/src` – React Frontend (Renderer)
 
-**Component Structure:**
+React + TypeScript + Tailwind UI.
 
-- `initial/` - Landing view for first screenshots and onboarding
-- `response/` - AI response display with markdown rendering
-- `follow-up/` - Follow-up interaction and conversation management
-- `main/` - View coordination and state management
-- `shared/` - Reusable components across views
-- `ui/` - Shadcn UI component library implementations
+• Entrypoints and plumbing
+- `App.tsx` – App provider setup (TanStack Query) and root
+- `main.tsx` – Vite bootstrapping
+- `index.css` – Theme tokens and Tailwind base
+- `lib.ts` – `cn` utility (clsx + tailwind-merge)
+- `types.ts` – Shared renderer types (e.g., `Screenshot`)
 
-**Responsibilities:**
+• Components
+- `components/Main.tsx` – View coordinator; resizes window based on content
+- `components/Initial.tsx` – First view; shows captured screenshots + commands
+- `components/Response.tsx` – Streams and displays AI responses
+- `components/FollowUp.tsx` – Follow‑up capture and response view
+- `components/Commands.tsx` – Command bar, shortcuts, and tooltip
+- `components/shared/` – Reusable UI (MarkdownSection, Tooltip, LoadingDots)
+- `components/ui/` – Shadcn‑derived primitives (dialog, input, select, etc.)
 
-- User interface rendering and interaction
-- Real-time screenshot preview and management
-- AI response display with rich formatting
-- Configuration interface (API keys, model selection)
-- Window sizing and positioning feedback
-- Command palette and help system
+• Utilities
+- `utils/` – Platform helpers and screenshot fetching
 
-### `/swift-helpers` - Native macOS Utilities
+Responsibilities
+- UI rendering and interaction
+- Real‑time screenshot preview and management
+- AI response display with rich Markdown formatting
+- Configuration UI (API key + model) via tooltip
+- Window sizing feedback to main via IPC
 
-Swift-based command-line utilities that provide macOS-specific functionality not available through Electron or Node.js.
+### System Audio (macOS)
 
-**Components:**
+- Implemented via Electron getDisplayMedia with a per‑session DisplayMediaRequestHandler (`electron/loopback/main.ts`)
+- Renderer mixes system audio + microphone using Web Audio and MediaRecorder (see `bridge/preload.ts`)
 
-- `ScreenFilterCLI.swift` - Screen capture protection using ScreenCaptureKit
-- `AudioMixerCLI.swift` - Advanced audio mixing using AVFoundation
-- `Package.swift` - Swift Package Manager configuration
+### `/assets` – Application Resources
 
-**Capabilities:**
+Static resources for packaging and branding.
 
-- **Critical Screen Filtering**: Makes the application invisible to screen sharing software (REQUIRED for app startup)
-- **Audio Mixing**: Professional-grade audio recording and mixing
-- **System Integration**: Deep macOS integration for seamless operation
-- **Permission Management**: Handles screen recording and microphone permissions with mandatory validation
-
-**Requirements:**
-
-- **macOS 12.3+ REQUIRED** for ScreenCaptureKit support
-- **Screen Recording permission MANDATORY** - application will not start without it
-- Microphone permission for audio recording
-- Swift helper binaries must be properly built and accessible
-
-### `/assets` - Application Resources
-
-Static resources and build assets for the application.
-
-**Contents:**
-
-- `icons/` - Platform-specific application icons (macOS, Windows)
+- `icons/` – Platform‑specific icons (macOS, Windows)
 - Build resources and metadata
-- Application branding and visual assets
 
-### `/build` - Build Configuration
+### `/build` – Build Configuration
 
-Configuration files for application building and packaging.
+Electron Builder configuration support.
 
-**Contents:**
-
-- `entitlements.mac.plist` - macOS security entitlements for app store and notarization
-- Platform-specific build configurations
-- Code signing and notarization settings
+- `entitlements.mac.plist` – macOS entitlements for hardened runtime / notarization
+- Code signing and packaging settings
 
 ### Supporting Files
 
-**Configuration:**
+Configuration
+- `package.json` – Scripts, app builder config, dependencies
+- `tsconfig.json` – Renderer TypeScript config
+- `tsconfig.electron.json` – Electron main TypeScript config
+- `vite.config.ts` – Vite config (incl. electron builds and manual chunks)
+- `tailwind.config.js` – Tailwind setup and CSS variables
 
-- `package.json` - Node.js dependencies and build scripts
-- `tsconfig.json` - TypeScript configuration for the renderer
-- `tsconfig.electron.json` - TypeScript configuration for the main process
-- `vite.config.ts` - Vite bundler configuration for the frontend
-- `tailwind.config.js` - Tailwind CSS styling configuration
-
-**Development:**
-
-- `components.json` - Shadcn UI component configuration
-- `postcss.config.js` - PostCSS processing configuration
-- `.gitignore` - Git ignore patterns
-- `env.d.ts` - TypeScript environment declarations
+Development
+- `components.json` – Shadcn UI component config
+- `postcss.config.js` – PostCSS configuration
+- `.gitignore` – Git ignore patterns
+- `env.d.ts` – TypeScript env declarations
 
 ## Technical Architecture
 
-### Process Architecture
+### Processes
 
-- **Main Process**: Electron main process handling system operations
-- **Renderer Process**: React application providing the user interface
-- **Swift Helpers**: Native utilities for macOS-specific functionality
+- Main process: Electron main for system operations
+- Renderer: React app for UI, screenshot previews, audio capture/mixing
 
 ### Communication Flow
 
-1. **User Input**: Global shortcuts trigger actions in the main process
-2. **Audio Recording**: AudioHelper manages multi-source recording
-3. **Screenshot Capture**: ScreenshotHelper captures and queues images
-4. **AI Processing**: ProcessingHelper sends combined context to Gemini API
-5. **UI Updates**: IPC events update the React interface in real-time
-6. **Response Display**: AI responses are formatted and displayed to the user
+1. User input: global shortcuts handled in main (`ShortcutsHelper`)
+2. Screenshot capture: `ScreenshotHelper` captures, saves, and queues images
+3. Audio capture: renderer captures and mixes system + mic audio
+4. AI processing: `ProcessingHelper` sends combined context to Gemini and streams tokens
+5. UI updates: IPC events update React views in real time
+6. Display: responses render via `MarkdownSection` with GFM support
 
 ### Data Management
 
-- **Screenshot Queues**: Separate queues for initial and follow-up screenshots
-- **Audio Buffers**: In-memory audio management with optional disk persistence
-- **Configuration Store**: Custom JSON-based storage for API keys and preferences
-- **State Synchronization**: Real-time sync between main and renderer processes
+- Screenshot queues: separate initial and follow‑up queues
+- Configuration store: simple JSON‑backed store for API keys, model, and profile
+- State sync: real‑time sync between main and renderer via IPC
 
 ### Security & Privacy
 
-- **Mandatory Screen Capture Protection**: Swift helpers are required for application startup on macOS
-- **Robust Error Handling**: Application exits with clear error messages if protection fails
-- **Permission Management**: Proper handling of macOS permissions with user-friendly error dialogs
-- **Data Privacy**: No persistent storage of sensitive audio or visual data
-- **Code Signing**: Proper macOS code signing and notarization
+- Clear error messaging on failure paths
+- Permission requests on macOS for screen capture and microphone
+- No persistent storage of sensitive audio/visual data beyond temp screenshots
+- Code signing and notarization for macOS builds
 
 ## Development Workflow
 
 ### Build Process
 
-1. **Swift Helpers**: Native utilities built with Swift Package Manager
-2. **Frontend**: React application bundled with Vite
-3. **Main Process**: TypeScript compiled to JavaScript
-4. **Packaging**: Electron Builder creates platform-specific distributions
+1. Frontend: React app bundled with Vite
+2. Main: TypeScript compiled to JavaScript (vite-plugin-electron)
+3. Packaging: Electron Builder creates platform‑specific distributions
 
-### Cross-Platform Support
+### Cross‑Platform Support
 
-- **macOS**: Full functionality with Swift helpers
-- **Windows**: Core functionality with alternative implementations
-- **Code Sharing**: Maximum code reuse between platforms
+- macOS: Full functionality (system audio via loopback; mic via getUserMedia)
+- Windows: Core functionality (loopback via PowerShell screenshot path; system audio differs)
+- Code sharing: Maximum reuse between platforms
 
 ### Dependencies
 
-- **Frontend**: React, TypeScript, Tailwind CSS, TanStack Query
-- **Backend**: Electron, Google Generative AI, Screenshot Desktop
-- **Native**: Swift, AVFoundation, ScreenCaptureKit (macOS)
+- Frontend: React, TypeScript, Tailwind CSS, TanStack Query, react-markdown, remark-gfm, react-syntax-highlighter
+- Backend: Electron, @google/genai, screenshot-desktop (Windows fallback)
+- Native: None required for audio (loopback handled via Chromium)
 
-This architecture provides a robust, cross-platform AI assistant that seamlessly integrates with the user's workflow while maintaining invisibility to screen sharing software.
+This map reflects the current repository layout and behavior. For screen‑sharing expectations and user‑facing notes, see `README.md`.

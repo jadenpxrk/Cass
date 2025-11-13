@@ -24,11 +24,6 @@ const MODEL_OPTIONS = [
     name: "Gemini 2.5 Pro",
     description: "Advanced reasoning and capabilities (Google)",
   },
-  {
-    id: "gemini-2.0-flash",
-    name: "Gemini 2.0 Flash",
-    description: "Efficient Gemini model (Google)",
-  },
 ];
 
 export default function Tooltip({ trigger, onVisibilityChange }: TooltipProps) {
@@ -37,29 +32,65 @@ export default function Tooltip({ trigger, onVisibilityChange }: TooltipProps) {
   const [selectedModel, setSelectedModel] = useState(
     () => MODEL_OPTIONS.find((m) => m.default)?.id || "gemini-2.5-flash"
   );
+  const [profile, setProfile] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const hideTimeoutRef = useRef<NodeJS.Timeout>();
+  const [audioStatus, setAudioStatus] = useState<{
+    isRecording: boolean;
+    mode: "mixed" | "system-only" | "microphone-only" | "idle";
+  }>({ isRecording: false, mode: "idle" });
 
   useEffect(() => {
     const loadCurrentConfig = async () => {
       try {
-        const response = await (window.electronAPI as any).getApiConfig();
+        const api = window.electronAPI as any;
+        const response = await api.getApiConfig();
         if (response.success) {
           if (response.apiKey) setApiKey(response.apiKey);
           if (response.model) setSelectedModel(response.model);
         }
+        // Load profile if the bridge supports it; ignore errors to remain backward-compatible
+        try {
+          if (api.getUserProfile) {
+            const p = await api.getUserProfile();
+            if (p?.success && typeof p.profile === 'string') {
+              setProfile(p.profile);
+            }
+          }
+        } catch {}
       } catch {
         setError("Failed to load configuration");
       }
     };
     loadCurrentConfig();
 
+    // Initialize audio capture status
+    const initAudioStatus = async () => {
+      try {
+        const res = await (window.electronAPI as any).getAudioRecordingStatus();
+        if (res?.success) {
+          const mode = (res.recording?.recordingMode as any) || "idle";
+          setAudioStatus({ isRecording: !!res.isRecording, mode });
+        }
+      } catch {}
+    };
+    initAudioStatus();
+
+    // Subscribe to runtime changes
+    const unsubscribe = (window.electronAPI as any).onAudioRecordingStatusChanged(
+      (data: { isRecording: boolean; recording?: any }) => {
+        const mode = (data?.recording?.recordingMode as any) || (data.isRecording ? "system-only" : "idle");
+        setAudioStatus({ isRecording: !!data.isRecording, mode });
+      }
+    );
+
     return () => {
       if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
       window.electronAPI.setIgnoreMouseEvents();
+      try { unsubscribe?.(); } catch {}
     };
   }, []);
 
@@ -104,7 +135,14 @@ export default function Tooltip({ trigger, onVisibilityChange }: TooltipProps) {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await (window.electronAPI as any).setApiConfig({
+      const api = window.electronAPI as any;
+      // Save personalization first (if supported), then API config
+      try {
+        if (api.setUserProfile) {
+          await api.setUserProfile(profile ?? "");
+        }
+      } catch {}
+      const result = await api.setApiConfig({
         apiKey: apiKey.trim(),
         model: selectedModel,
       });
@@ -144,8 +182,19 @@ export default function Tooltip({ trigger, onVisibilityChange }: TooltipProps) {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
           >
-            <div className="mt-2 p-3 text-xs bg-background/80 backdrop-blur-md rounded-lg text-foreground shadow-lg">
+            <div className="mt-2 p-3 text-xs bg-background/50 backdrop-blur-md rounded-lg text-foreground shadow-lg">
               <div className="space-y-4">
+                {/* Audio capture status */}
+                <div className="px-2 py-1.5 rounded-md border border-border/60 bg-muted/20 flex items-center justify-between">
+                  <span className="text-[11px] text-muted-foreground">Audio Capture</span>
+                  <span className="text-[11px] font-medium">
+                    {audioStatus.isRecording ? (
+                      audioStatus.mode === "mixed" ? "System + Mic" : audioStatus.mode === "system-only" ? "System only" : "Mic only"
+                    ) : (
+                      "Not recording"
+                    )}
+                  </span>
+                </div>
                 <h3 className="font-medium truncate px-2 mb-3 select-none">
                   API Configuration
                 </h3>
@@ -171,6 +220,24 @@ export default function Tooltip({ trigger, onVisibilityChange }: TooltipProps) {
                       spellCheck="false"
                       className="text-xs h-8 select-text"
                     />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="profile"
+                      className="block text-xs font-medium text-foreground mb-3"
+                    >
+                      Personalization / Knowledge Base
+                    </label>
+                    <textarea
+                      id="profile"
+                      value={profile}
+                      onChange={(e) => setProfile(e.target.value)}
+                      placeholder="Add details about you, goals, context, style preferences..."
+                      className="w-full text-xs h-24 p-2 rounded-md bg-background border border-border resize-y"
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      This text is sent as extra context with each request. Stored locally.
+                    </p>
                   </div>
                   <div>
                     <label

@@ -216,10 +216,11 @@ export default function Response({ setView }: ResponseProps) {
               onTooltipVisibilityChange={handleTooltipVisibilityChange}
               view="response"
               isLoading={isLoading}
+              screenshots={extraScreenshots}
             />
           </div>
 
-          <div className="w-full text-xs text-foreground rounded-md select-none bg-background/80 backdrop-blur-md">
+          <div className="w-full text-xs text-foreground rounded-md select-none bg-background/50 backdrop-blur-md">
             <div className="rounded-lg overflow-hidden">
               <div className="px-4 py-3 space-y-4 max-w-full">
                 <MarkdownSection

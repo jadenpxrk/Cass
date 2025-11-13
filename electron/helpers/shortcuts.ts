@@ -1,6 +1,6 @@
 import { app, globalShortcut } from "electron";
 
-import { IShortcutsHelperDeps } from "./main";
+import type { IShortcutsHelperDeps } from "../types/ipc";
 
 export class ShortcutsHelper {
   private deps: IShortcutsHelperDeps;
@@ -14,10 +14,12 @@ export class ShortcutsHelper {
       "CommandOrControl+Enter": async () => {
         try {
           await this.deps.takeScreenshot();
-          await this.deps.processingHelper?.processScreenshots();
+          // Let renderer provide optional audio snapshot and trigger processing
+          const win = this.deps.getMainWindow();
+          win?.webContents.send("client-process-requested");
           return true;
         } catch (error) {
-          console.error("Error processing screenshot:", error);
+          console.error("Error preparing processing:", error);
           return false;
         }
       },
@@ -31,6 +33,18 @@ export class ShortcutsHelper {
           return true;
         } catch (error) {
           console.error("Error resetting:", error);
+          return false;
+        }
+      },
+      "CommandOrControl+B": async () => {
+        try {
+          console.log("Command/Ctrl + B pressed. Taking a screenshot...");
+          const path = await this.deps.takeScreenshot();
+          const win = this.deps.getMainWindow();
+          win?.webContents.send("screenshot-taken", { path });
+          return true;
+        } catch (error) {
+          console.error("Error taking screenshot:", error);
           return false;
         }
       },
@@ -124,6 +138,18 @@ export class ShortcutsHelper {
         return false;
       }
     });
+
+    // Always register core processing shortcut globally so it works even if window is non-interactive
+    if (!globalShortcut.isRegistered("CommandOrControl+Enter")) {
+      globalShortcut.register("CommandOrControl+Enter", () => {
+        try {
+          const handler = this.shortcuts["CommandOrControl+Enter"]; 
+          handler?.();
+        } catch (error) {
+          console.error("Error handling global CommandOrControl+Enter:", error);
+        }
+      });
+    }
 
     if (this.deps.isWindowUsable()) {
       this.registerAppShortcuts();

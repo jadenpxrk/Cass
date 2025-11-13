@@ -1,6 +1,5 @@
-import { getStoreValue, setStoreValue } from "./main";
-
-import { initializeIpcHandlerDeps } from "./main";
+import { getStoreValue, setStoreValue } from "../store/config";
+import type { initializeIpcHandlerDeps } from "../types/ipc";
 import { ipcMain } from "electron";
 
 export function initializeIpcHandlers(deps: initializeIpcHandlerDeps): void {
@@ -48,9 +47,9 @@ export function initializeIpcHandlers(deps: initializeIpcHandlerDeps): void {
           // Optionally return an error, but setting env vars might still be useful
         }
 
-        // Set environment variables based on provider
+        // Set environment variables for runtime consumers
         process.env.API_KEY = apiKey.trim();
-        process.env.MODEL = model;
+        process.env.API_MODEL = model;
 
         // Notify that the config has been updated
         const mainWindow = deps.getMainWindow();
@@ -78,6 +77,17 @@ export function initializeIpcHandlers(deps: initializeIpcHandlerDeps): void {
   ipcMain.handle("process-screenshots", async () => {
     await deps.processingHelper?.processScreenshots();
   });
+  ipcMain.handle(
+    "process-screenshots-with-audio",
+    async (_event, payload: { audioBase64?: string; mimeType?: string }) => {
+      await deps.processingHelper?.processScreenshots(
+        payload?.audioBase64
+          ? { audio: { data: payload.audioBase64, mimeType: payload.mimeType } }
+          : undefined
+      );
+      return { success: true };
+    }
+  );
 
   // Window dimension handlers
   ipcMain.handle(
@@ -105,16 +115,28 @@ export function initializeIpcHandlers(deps: initializeIpcHandlerDeps): void {
       if (currentView === "initial") {
         const queue = deps.getScreenshotQueue();
         previews = await Promise.all(
-          queue.map(async (path) => ({
-            path,
-          }))
+          queue.map(async (path) => {
+            try {
+              const fs = require('node:fs');
+              const data = fs.readFileSync(path).toString('base64');
+              return { path, preview: data };
+            } catch {
+              return { path };
+            }
+          })
         );
       } else {
         const extraQueue = deps.getExtraScreenshotQueue();
         previews = await Promise.all(
-          extraQueue.map(async (path) => ({
-            path,
-          }))
+          extraQueue.map(async (path) => {
+            try {
+              const fs = require('node:fs');
+              const data = fs.readFileSync(path).toString('base64');
+              return { path, preview: data };
+            } catch {
+              return { path };
+            }
+          })
         );
       }
 
@@ -143,6 +165,34 @@ export function initializeIpcHandlers(deps: initializeIpcHandlerDeps): void {
     return { error: "No main window available" };
   });
 
+  // User profile (personalization/knowledge base)
+  ipcMain.handle("get-user-profile", async () => {
+    try {
+      const value = await getStoreValue("user-profile");
+      if (typeof value === "string") return { success: true, profile: value };
+      if (value && typeof value === "object")
+        return { success: true, profile: JSON.stringify(value) };
+      return { success: true, profile: "" };
+    } catch (error) {
+      console.error("Error getting user profile:", error);
+      return { success: false, error: "Failed to get user profile" };
+    }
+  });
+
+  ipcMain.handle(
+    "set-user-profile",
+    async (_event, profile: string | Record<string, any>) => {
+      try {
+        const value = typeof profile === "string" ? profile : JSON.stringify(profile);
+        const ok = await setStoreValue("user-profile", value);
+        return { success: !!ok };
+      } catch (error) {
+        console.error("Error setting user profile:", error);
+        return { success: false, error: "Failed to set user profile" };
+      }
+    }
+  );
+
   ipcMain.handle("take-screenshot", async () => {
     try {
       const screenshotPath = await deps.takeScreenshot();
@@ -159,50 +209,7 @@ export function initializeIpcHandlers(deps: initializeIpcHandlerDeps): void {
     return { success: true };
   });
 
-  // Audio recording handlers
-  ipcMain.handle("start-audio-recording", async () => {
-    try {
-      const result = await deps.startRecording();
-      return { ...result };
-    } catch (error) {
-      console.error("Error starting audio recording:", error);
-      return { success: false, error: String(error) };
-    }
-  });
-
-  ipcMain.handle("stop-audio-recording", async () => {
-    try {
-      const result = await deps.stopRecording();
-      return { ...result };
-    } catch (error) {
-      console.error("Error stopping audio recording:", error);
-      return { success: false, error: String(error) };
-    }
-  });
-
-  ipcMain.handle("get-audio-recording-status", () => {
-    try {
-      const status = deps.getRecordingStatus();
-      return {
-        success: true,
-        isRecording: status.isRecording,
-        recording: status.recording,
-      };
-    } catch (error) {
-      console.error("Error getting audio recording status:", error);
-      return { success: false, error: String(error), isRecording: false };
-    }
-  });
-
-  ipcMain.handle("get-audio-base64", async (_event, filePath: string) => {
-    try {
-      const audioBase64 = await deps.getAudioBase64(filePath);
-      return { success: true, audioBase64 };
-    } catch (error) {
-      console.error("Error getting audio base64:", error);
-      return { success: false, error: String(error), audioBase64: null };
-    }
-  });
+  // Audio recording handled in renderer; main no longer exposes recording IPC
 
   // Window management handlers
   ipcMain.handle("toggle-window", () => {
@@ -388,29 +395,5 @@ export function initializeIpcHandlers(deps: initializeIpcHandlerDeps): void {
     }
   });
 
-  // Screen capture protection status
-  ipcMain.handle("get-screen-protection-status", () => {
-    try {
-      // Access the screen capture helper through deps or main state
-      const mainWindow = deps.getMainWindow();
-      if (!mainWindow) {
-        return { success: false, error: "No main window available", isActive: false };
-      }
-      
-      // Since we don't have direct access to screenCaptureHelper in deps,
-      // we'll check if the platform supports it and assume it's active if we got this far
-      const supported = process.platform === "darwin";
-      const isActive = supported; // If we got this far on macOS, protection should be active
-      
-      return {
-        success: true,
-        isActive,
-        platform: process.platform,
-        supported
-      };
-    } catch (error) {
-      console.error("Error getting screen protection status:", error);
-      return { success: false, error: String(error), isActive: false };
-    }
-  });
+  // Screen capture protection status removed; feature no longer supported
 }
