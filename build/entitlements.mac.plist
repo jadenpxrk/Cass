@@ -19,7 +19,7 @@
     <!-- Screen Recording permission for ScreenCaptureKit -->
     <key>com.apple.security.device.screen-capture</key>
     <true/>
-    <!-- Allow spawning of child processes (for Swift helper) -->
+    <!-- Allow dynamic environment variables where needed for Electron -->
     <key>com.apple.security.cs.allow-dyld-environment-variables</key>
     <true/>
     <!-- Allow unsigned executable memory for Node.js -->

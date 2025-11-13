@@ -1,6 +1,6 @@
-# Cass - Invisible Desktop Assistant
+# Cass - Floating Desktop Assistant
 
-**Cass** is your invisible, on-screen AI companion. It runs as a floating Electron app that stays hidden from Zoom, Google Meet, and other capture tools while answering whatever you throw at it—coding drills, multiple-choice questions, planning prompts, or quick definitions mid-call.
+**Cass** is your on-screen AI companion. It runs as a floating Electron overlay you can toggle and reposition while it helps with whatever you throw at it—coding drills, multiple-choice questions, planning prompts, or quick definitions mid-call.
 
 Note: Cass no longer attempts to enforce invisibility via OS-level screen filtering. Some meeting tools may capture the window as a normal overlay. If your tool offers advanced screen filtering, you can enable it manually.
 
@@ -39,11 +39,14 @@ Perfect for:
 
 ## Keyboard Shortcuts
 
-- **Cmd/Ctrl + Enter**: Take screenshot and process with AI (start recording or add follow-up)
+- **Cmd/Ctrl + Enter**: Take screenshot and process with AI (includes audio snapshot if recording is active)
+- **Cmd/Ctrl + B**: Take a screenshot (adds to queue without processing)
 - **Cmd/Ctrl + R**: Reset session and clear context
 - **Cmd/Ctrl + \\**: Toggle window visibility
 - **Cmd/Ctrl + Q**: Quit the application
 - **Arrow keys with Cmd/Ctrl**: Move window around the screen
+
+Recording: use the microphone button in the overlay to start/stop audio capture; there’s no default keyboard shortcut for this.
 
 ## Quick Start
 
@@ -62,17 +65,7 @@ If screenshots fail or audio is unavailable, ensure Cass has the relevant permis
 
 Cass no longer ships a native screen-protection helper. Behavior during screen sharing depends on the conference tool. Some tools offer options to hide overlays; enable them if needed.
 
-## System Requirements
-
-### macOS
-
-- macOS 12+ recommended
-- Screen Recording and Microphone permissions may be required for screenshots and audio capture
- - For system audio loopback, grant Screen Recording. On macOS 14.4+, Apple added `NSAudioCaptureUsageDescription` for app‑audio capture.
-
-### Windows
-
-- Windows 10+ recommended
+ 
 
 ## Project Structure
 

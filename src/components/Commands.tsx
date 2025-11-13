@@ -27,13 +27,6 @@ export default function Commands({
   );
   const [recordingElapsedTime, setRecordingElapsedTime] = useState(0);
 
-  // Debug: log when component mounts/unmounts
-  useEffect(() => {
-    console.log(`Commands component mounted with view: ${view}`);
-    return () => {
-      console.log(`Commands component unmounted from view: ${view}`);
-    };
-  }, [view]);
 
   const MAX_RECORDING_TIME = (59 * 60 + 59) * 1000;
 
@@ -61,7 +54,7 @@ export default function Commands({
           setIsStartingRecording(false);
           setRecordingStartTime(status.recording.startTime);
           setRecordingElapsedTime(Date.now() - status.recording.startTime);
-          console.log("Initialized recording state from backend:", status);
+          // initialized from backend
         }
       } catch (error) {
         console.error("Failed to initialize recording state:", error);
@@ -74,8 +67,6 @@ export default function Commands({
     // Listen for real-time recording status changes instead of polling
     const unsubscribe = window.electronAPI.onAudioRecordingStatusChanged(
       ({ isRecording: newIsRecording, recording }) => {
-        console.log("Recording status changed:", { newIsRecording, recording });
-        
         setIsRecording(newIsRecording);
         
         if (newIsRecording && recording?.startTime) {
@@ -83,13 +74,11 @@ export default function Commands({
           setIsStartingRecording(false);
           setRecordingStartTime(recording.startTime);
           setRecordingElapsedTime(0);
-          console.log("Recording started - real-time event detected");
         } else if (!newIsRecording) {
           // Recording just stopped
           setIsStartingRecording(false);
           setRecordingStartTime(null);
           setRecordingElapsedTime(0);
-          console.log("Recording stopped - real-time event detected");
         }
       }
     );
@@ -122,7 +111,6 @@ export default function Commands({
       const result = await window.electronAPI.stopAudioRecording();
       if (result.success) {
         // UI will be updated by the real-time event when recording actually stops
-        console.log("Recording stop command sent, waiting for actual recording to stop...");
       } else {
         console.error("Failed to stop recording:", result.error);
         // Keep current recording state since stop failed
@@ -133,7 +121,6 @@ export default function Commands({
     }
   };
   const handleMicrophoneClick = async (e: React.MouseEvent) => {
-    console.log("Microphone button clicked!"); // Debug log
     e.preventDefault();
     e.stopPropagation();
 
@@ -151,9 +138,6 @@ export default function Commands({
           console.error("Failed to start recording:", result.error);
           setIsStartingRecording(false);
         } else {
-          console.log(
-            "Recording start command sent, waiting for actual recording to begin..."
-          );
           // UI will be updated by the real-time event when recording actually starts
         }
       }

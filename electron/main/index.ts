@@ -26,8 +26,7 @@ interface State {
   PROCESSING_EVENTS: ProcessingEventMap;
   screenshotHelper: any;
   processingHelper: any;
-  audioHelper: null;
-  screenCaptureHelper: any | null;
+  
   view: "initial" | "response" | "followup";
   step: number;
 }
@@ -45,8 +44,7 @@ const state: State = {
   hasFollowedUp: false,
   screenshotHelper: null,
   processingHelper: null,
-  audioHelper: null,
-  screenCaptureHelper: null,
+  
   view: "initial",
   step: 0,
   PROCESSING_EVENTS: {
@@ -67,7 +65,7 @@ const state: State = {
 
 function initializeHelpers() {
   state.screenshotHelper = new ScreenshotHelper(state.view);
-  // state.screenCaptureHelper = new ScreenCaptureHelper();
+  
   state.processingHelper = new ProcessingHelper({
     getScreenshotHelper,
     getMainWindow,
@@ -295,7 +293,7 @@ async function createWindow(): Promise<BrowserWindow> {
   //     const { dialog } = require('electron');
   //     dialog.showErrorBox(
   //       'Cass - Screen Protection Error',
-  //       `Screen capture protection encountered an error: ${error}\n\nThis feature is required for Cass to remain undetectable during screen sharing.\n\nPlease ensure:\n1. You have granted Screen Recording permissions to Cass\n2. You are running macOS 12.3 or later\n3. The Swift helper binaries are properly installed`
+  //       `Screen capture protection encountered an error: ${error}\n\nThis feature is required for Cass to remain undetectable during screen sharing.\n\nPlease ensure:\n1. You have granted Screen Recording permissions to Cass\n2. You are running macOS 12.3 or later`
   //     );
   //     app.quit();
   //     return state.mainWindow;
@@ -531,18 +529,7 @@ async function initializeApp() {
       setHasFollowedUp: (value) => {
         state.hasFollowedUp = value;
       },
-      // Audio deps
-      startAudioRecording: async () => {
-        const res = await state.audioHelper?.startRecording('mixed');
-        return res || { success: false, error: 'Audio helper unavailable' };
-      },
-      stopAudioRecording: async () => {
-        const res = await state.audioHelper?.stopRecording();
-        return res || { success: false, error: 'Audio helper unavailable' };
-      },
-      getAudioBase64: async (filePath?: string) => {
-        return (await state.audioHelper?.getAudioBase64(filePath)) || { base64: '', mimeType: 'audio/wav' };
-      },
+      
     });
     await createWindow();
     state.shortcutsHelper?.registerGlobalShortcuts();
@@ -589,10 +576,7 @@ function cleanupAllFiles(): void {
     console.log("All screenshots cleaned up via cleanup function");
   }
 
-  if (state.audioHelper) {
-    state.audioHelper.cleanupAllRecordings();
-    console.log("All audio recordings cleaned up via cleanup function");
-  }
+  
 }
 
 async function takeScreenshot(): Promise<string> {

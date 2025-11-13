@@ -109,11 +109,8 @@ export default function Response({ setView }: ResponseProps) {
         }
 
         if (!responseText && !streamedResponse) {
-          console.warn("Received empty response data");
           return;
         }
-
-        console.log("Received response:", responseText || streamedResponse);
 
         const taskResponseData = {
           response: responseText || streamedResponse,
@@ -135,13 +132,11 @@ export default function Response({ setView }: ResponseProps) {
         setIsStreaming(true);
       }),
       window.electronAPI.onFollowUpStart(() => {
-        console.log("[Response] Follow up process starting");
         setFollowUpProcessing(true);
         setShowFollowUpView(true);
         queryClient.setQueryData(["followup_response"], null);
       }),
       window.electronAPI.onFollowUpSuccess((data: TaskResponseData) => {
-        console.log("[Response] Follow up success received");
         queryClient.setQueryData(["followup_response"], data);
         setFollowUpProcessing(false);
 
@@ -156,7 +151,7 @@ export default function Response({ setView }: ResponseProps) {
         setShowFollowUpView(false);
       }),
       window.electronAPI.onFollowUpError((error: string) => {
-        console.error("[Response] Follow up error:", error);
+        console.error("Follow up error:", error);
         setFollowUpProcessing(false);
         setShowFollowUpView(false);
       }),

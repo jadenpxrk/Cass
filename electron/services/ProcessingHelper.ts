@@ -215,7 +215,6 @@ export class ProcessingHelper {
       }
 
       onSuccess?.(responseText);
-      this.cleanupLatestRecording();
 
       return { success: true, data: responseText };
     } catch (error: any) {
@@ -256,10 +255,7 @@ export class ProcessingHelper {
     hasAudioInstructions: boolean;
   }> {
     const imageParts = base64Images.map((data) => ({
-      inlineData: {
-        mimeType: "image/png",
-        data,
-      },
+      inlineData: { mimeType: "image/png", data },
     }));
 
     const contentParts = [...imageParts];
@@ -267,62 +263,13 @@ export class ProcessingHelper {
       `[Processing:${logLabel}] Images added to contentParts: ${imageParts.length}`
     );
 
-    // If renderer provided audio, prefer it.
     if (overrideAudio?.data) {
       const mime = overrideAudio.mimeType || "audio/webm";
       contentParts.push({ inlineData: { mimeType: mime, data: overrideAudio.data } });
       return { contentParts, hasAudioInstructions: true };
     }
 
-    const audioHelper = undefined as any; // audio handled in renderer via overrideAudio
-    const logPrefix = logLabel === "follow-up" ? "[Follow-up]" : "[Initial]";
-    let hasAudioInstructions = false;
-
-    if (!audioHelper) {
-      console.log(`${logPrefix} Audio helper not available`);
-      return { contentParts, hasAudioInstructions };
-    }
-
-    const recordingStatus = audioHelper.getRecordingStatus();
-    if (recordingStatus.isRecording && recordingStatus.recording) {
-      try {
-        const audioFilePath =
-          await audioHelper.saveCurrentRecordingForProcessing();
-        if (audioFilePath) {
-          const audioBase64 = await audioHelper.getAudioBase64(audioFilePath);
-          if (audioBase64) {
-            hasAudioInstructions = true;
-            console.log(
-              `${logPrefix} Audio data available - Base64 length: ${audioBase64.length} characters`
-            );
-            contentParts.push({
-              inlineData: {
-                mimeType: "audio/wav",
-                data: audioBase64,
-              },
-            });
-            console.log(
-              `${logPrefix} Audio added to contentParts as multimodal input`
-            );
-          } else {
-            console.log(
-              `${logPrefix} Audio file found but Base64 conversion failed`
-            );
-          }
-        } else {
-          console.log(`${logPrefix} No audio file path available`);
-        }
-      } catch (audioError) {
-        console.error(
-          `${logPrefix} Error getting audio data for prompt:`,
-          audioError
-        );
-      }
-    } else {
-      console.log(`${logPrefix} No audio recording available`);
-    }
-
-    return { contentParts, hasAudioInstructions };
+    return { contentParts, hasAudioInstructions: false };
   }
 
   private async streamResponse(options: {
@@ -379,10 +326,7 @@ export class ProcessingHelper {
     return accumulatedText;
   }
 
-  private cleanupLatestRecording(): void {
-    // No-op: renderer supplies audio inline; Swift mixer files are cleaned up by main when needed.
-    return;
-  }
+  
 
   private handleProcessingError(
     error: any,

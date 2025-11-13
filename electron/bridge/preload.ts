@@ -1,4 +1,3 @@
-console.log("Preload script starting...");
 
 import { contextBridge, ipcRenderer } from "electron";
 
@@ -104,7 +103,6 @@ export const PROCESSING_EVENTS = {
   FOLLOW_UP_CHUNK: "follow-up-chunk",
 } as const;
 
-console.log("Preload script is running");
 
 // Simple local event bus for renderer-facing events
 type AudioStatus = { isRecording: boolean; recording?: any };
@@ -237,7 +235,7 @@ async function snapshotRendererAudio(): Promise<{ base64?: string; mimeType?: st
   return { base64, mimeType: rec.mediaRecorder.mimeType || "audio/webm" };
 }
 
-// Handle main’s request to process; prefer main-side (Swift) audio if available
+// Handle main’s request to process; include a renderer audio snapshot if available
 ipcRenderer.on("client-process-requested", async () => {
   try {
     const snap = await snapshotRendererAudio();
@@ -255,17 +253,7 @@ const electronAPI = {
   updateContentDimensions: (dimensions: { width: number; height: number }) =>
     ipcRenderer.invoke("update-content-dimensions", dimensions),
   getScreenshots: () => ipcRenderer.invoke("get-screenshots"),
-  toggleMainWindow: async () => {
-    console.log("toggleMainWindow called from preload");
-    try {
-      const result = await ipcRenderer.invoke("toggle-window");
-      console.log("toggle-window result:", result);
-      return result;
-    } catch (error) {
-      console.error("Error in toggleMainWindow:", error);
-      throw error;
-    }
-  },
+  toggleMainWindow: async () => ipcRenderer.invoke("toggle-window"),
   // Event listeners
   onScreenshotTaken: (
     callback: (data: { path: string; preview: string }) => void
@@ -407,25 +395,12 @@ const electronAPI = {
   disableLoopbackAudio: () => ipcRenderer.invoke("disable-loopback-audio").catch((e) => ({ success: false, error: String(e) })),
 } as ElectronAPI;
 
-// Before exposing the API
-console.log(
-  "About to expose electronAPI with methods:",
-  Object.keys(electronAPI)
-);
-
-// Add this focus restoration handler
-window.addEventListener("focus", () => {
-  console.log("Window focused");
-});
-
 // Expose the API to the renderer process
 contextBridge.exposeInMainWorld("electronAPI", electronAPI);
 
 // Expose platform info
 contextBridge.exposeInMainWorld("platform", process.platform);
 
-// Log that preload is complete
-console.log("Preload script completed");
 
 // Auto hit-test to allow clicking on controls while keeping click-through elsewhere
 // Works only because main sets setIgnoreMouseEvents(true, { forward: true })
